@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Marathon } from './marathon.entity';
 import { MarathonUser } from './marathon-user.entity';
+import type { MarathonUserRole } from './marathon-user.entity'; // ⬅️ ВАЖЛИВО: імпорт типу
 import { MarathonReview } from './marathon-review.entity';
 import { MarathonAttachment } from './marathon-attachment.entity';
 import { UsersService } from '../users/users.service';
@@ -100,6 +101,60 @@ export class MarathonsService {
 
     await this.repo.remove(marathon);
     return { ok: true };
+  }
+
+  // ───────────── Participants (зв'язок users <-> marathons) ─────────────
+
+  async addParticipant(
+    marathonId: string,
+    userId: string,
+    role: MarathonUserRole = 'student',
+  ) {
+    const [marathon, user] = await Promise.all([
+      this.findOne(marathonId),
+      this.users.findById(userId),
+    ]);
+
+    if (!user) throw new NotFoundException('User not found');
+
+    // перевіряємо, чи уже в марафоні
+    const existing = await this.marathonUserRepo.findOne({
+      where: {
+        marathon: { id: marathonId },
+        user: { id: userId },
+      },
+      relations: { marathon: true, user: true },
+    });
+
+    if (existing) return existing;
+
+    const mu = this.marathonUserRepo.create({ marathon, user, role });
+
+    return this.marathonUserRepo.save(mu);
+  }
+
+  async removeParticipant(marathonId: string, userId: string) {
+    const existing = await this.marathonUserRepo.findOne({
+      where: {
+        marathon: { id: marathonId },
+        user: { id: userId },
+      },
+      relations: { marathon: true, user: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('You are not in this marathon');
+    }
+
+    await this.marathonUserRepo.remove(existing);
+    return { ok: true };
+  }
+
+  getParticipants(marathonId: string) {
+    return this.marathonUserRepo.find({
+      where: { marathon: { id: marathonId } },
+      relations: { user: true },
+    });
   }
 
   // ───────────── Reviews (rating + відгуки) ─────────────

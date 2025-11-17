@@ -52,6 +52,23 @@ export class MarathonsController {
     return this.marathons.remove(id, user);
   }
 
+  // ───── Учасники марафону ─────
+
+  @HttpPost(':id/join')
+  join(@Param('id') marathonId: string, @CurrentUser() user: { sub: string }) {
+    return this.marathons.addParticipant(marathonId, user.sub);
+  }
+
+  @HttpPost(':id/leave')
+  leave(@Param('id') marathonId: string, @CurrentUser() user: { sub: string }) {
+    return this.marathons.removeParticipant(marathonId, user.sub);
+  }
+
+  @Get(':id/participants')
+  getParticipants(@Param('id') marathonId: string) {
+    return this.marathons.getParticipants(marathonId);
+  }
+
   // ───── Reviews ─────
 
   @HttpPost(':id/reviews')

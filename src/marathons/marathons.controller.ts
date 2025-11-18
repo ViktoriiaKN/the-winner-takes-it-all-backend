@@ -7,13 +7,22 @@ import {
   Patch,
   Post as HttpPost,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { MarathonsService } from './marathons.service';
 import { CreateMarathonDto } from './dto/create-marathon.dto';
 import { UpdateMarathonDto } from './dto/update-marathon.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/user.decorator';
+
+type UploadedFile = {
+  originalname: string;
+  filename: string;
+  mimetype: string;
+};
 
 @Controller('marathons')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -67,6 +76,22 @@ export class MarathonsController {
   @Get(':id/participants')
   getParticipants(@Param('id') marathonId: string) {
     return this.marathons.getParticipants(marathonId);
+  }
+
+  // ───── Attachments ─────
+
+  @HttpPost(':id/attachments')
+  @UseInterceptors(FileInterceptor('file', { dest: 'uploads' }))
+  uploadAttachment(
+    @Param('id') marathonId: string,
+    @UploadedFile() file: UploadedFile,
+  ) {
+    return this.marathons.addAttachment(marathonId, file);
+  }
+
+  @Get(':id/attachments')
+  getAttachments(@Param('id') marathonId: string) {
+    return this.marathons.getAttachments(marathonId);
   }
 
   // ───── Reviews ─────

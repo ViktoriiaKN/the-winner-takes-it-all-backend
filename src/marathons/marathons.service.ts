@@ -7,7 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Marathon } from './marathon.entity';
 import { MarathonUser } from './marathon-user.entity';
-import type { MarathonUserRole } from './marathon-user.entity'; // ⬅️ ВАЖЛИВО: імпорт типу
+import type { MarathonUserRole } from './marathon-user.entity';
 import { MarathonReview } from './marathon-review.entity';
 import { MarathonAttachment } from './marathon-attachment.entity';
 import { UsersService } from '../users/users.service';
@@ -15,6 +15,12 @@ import { CreateMarathonDto } from './dto/create-marathon.dto';
 import { UpdateMarathonDto } from './dto/update-marathon.dto';
 
 type CurrentUser = { sub: string; role: string };
+
+type UploadedFile = {
+  originalname: string;
+  filename: string;
+  mimetype: string;
+};
 
 @Injectable()
 export class MarathonsService {
@@ -32,9 +38,7 @@ export class MarathonsService {
   // ───────────── helpers ─────────────
 
   private stripLinks(html: string): string {
-    // прибираємо чисті http/https посилання
     const withoutUrls = html.replace(/https?:\/\/[^\s<"]+/gi, '');
-    // прибираємо <a href="...">...</a>, залишаючи текст всередині
     return withoutUrls.replace(/<a[^>]*>(.*?)<\/a>/gi, '$1');
   }
 
@@ -103,7 +107,7 @@ export class MarathonsService {
     return { ok: true };
   }
 
-  // ───────────── Participants (зв'язок users <-> marathons) ─────────────
+  // ───────────── Participants ─────────────
 
   async addParticipant(
     marathonId: string,
@@ -117,7 +121,6 @@ export class MarathonsService {
 
     if (!user) throw new NotFoundException('User not found');
 
-    // перевіряємо, чи уже в марафоні
     const existing = await this.marathonUserRepo.findOne({
       where: {
         marathon: { id: marathonId },
@@ -157,7 +160,29 @@ export class MarathonsService {
     });
   }
 
-  // ───────────── Reviews (rating + відгуки) ─────────────
+  // ───────────── Attachments (файли марафону) ─────────────
+
+  async addAttachment(marathonId: string, file: UploadedFile) {
+    const marathon = await this.findOne(marathonId);
+
+    const attachment = this.attachmentRepo.create({
+      marathon,
+      fileName: file.originalname,
+      fileUrl: `/uploads/${file.filename}`,
+      mimeType: file.mimetype,
+    });
+
+    return this.attachmentRepo.save(attachment);
+  }
+
+  getAttachments(marathonId: string) {
+    return this.attachmentRepo.find({
+      where: { marathon: { id: marathonId } },
+      order: { createdAt: 'ASC' },
+    });
+  }
+
+  // ───────────── Reviews ─────────────
 
   async addReview(
     marathonId: string,

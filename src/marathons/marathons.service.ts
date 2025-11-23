@@ -162,8 +162,14 @@ export class MarathonsService {
 
   // ───────────── Attachments (файли марафону) ─────────────
 
-  async addAttachment(marathonId: string, file: UploadedFile) {
+  async addAttachment(
+    marathonId: string,
+    user: CurrentUser,
+    file: UploadedFile,
+  ) {
     const marathon = await this.findOne(marathonId);
+    // тільки власник марафону або адмін можуть додавати файли
+    this.ensureOwnerOrAdmin(marathon, user);
 
     const attachment = this.attachmentRepo.create({
       marathon,

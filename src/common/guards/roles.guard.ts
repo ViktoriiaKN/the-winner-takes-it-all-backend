@@ -14,13 +14,21 @@ export class RolesGuard implements CanActivate {
       ctx.getClass(),
     ]);
 
-    if (!required?.length) return true;
-
     const req = ctx
       .switchToHttp()
       .getRequest<Request & { user?: JwtPayload }>();
 
     const role = req.user?.role as Role | undefined;
+
+    // Заблокованого користувача не пускаємо НІКУДИ,
+    // якщо контролер використовує RolesGuard
+    if (role === 'blocked') return false;
+
+    // Якщо для маршруту не вказано @Roles() — просто перевіряємо,
+    // що користувач взагалі є (і не blocked, див. вище)
+    if (!required?.length) return Boolean(role);
+
+    // Якщо @Roles є — перевіряємо, що роль дозволена
     return role ? required.includes(role) : false;
   }
 }

@@ -24,6 +24,19 @@ type UploadedFile = {
   mimetype: string;
 };
 
+type FileFilterCallback = (error: Error | null, acceptFile: boolean) => void;
+
+// можна налаштовувати через .env
+const UPLOAD_DIR = process.env.UPLOAD_DIR ?? 'uploads';
+const MAX_FILE_SIZE = Number(process.env.UPLOAD_MAX_SIZE) || 10 * 1024 * 1024; // 10 MB за замовчуванням
+
+const ALLOWED_MIME_TYPES = (
+  process.env.UPLOAD_ALLOWED_MIME ??
+  'image/png,image/jpeg,image/jpg,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+)
+  .split(',')
+  .map((s) => s.trim());
+
 @Controller('marathons')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class MarathonsController {
@@ -81,12 +94,29 @@ export class MarathonsController {
   // ───── Attachments ─────
 
   @HttpPost(':id/attachments')
-  @UseInterceptors(FileInterceptor('file', { dest: 'uploads' }))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      dest: UPLOAD_DIR,
+      limits: { fileSize: MAX_FILE_SIZE },
+      fileFilter: (
+        _req: unknown,
+        file: UploadedFile,
+        cb: FileFilterCallback,
+      ) => {
+        if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+          cb(new Error('Invalid file type'), false);
+        } else {
+          cb(null, true);
+        }
+      },
+    }),
+  )
   uploadAttachment(
     @Param('id') marathonId: string,
+    @CurrentUser() user: { sub: string; role: string },
     @UploadedFile() file: UploadedFile,
   ) {
-    return this.marathons.addAttachment(marathonId, file);
+    return this.marathons.addAttachment(marathonId, user, file);
   }
 
   @Get(':id/attachments')

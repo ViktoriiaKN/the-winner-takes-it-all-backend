@@ -1,4 +1,8 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -17,8 +21,15 @@ export class UsersService {
     return this.repo.save(user);
   }
 
+  /**
+   * Список користувачів для адмінки / ментора
+   * (без passwordHash).
+   */
   findAll() {
-    return this.repo.find({ select: ['id', 'email', 'role', 'createdAt'] });
+    return this.repo.find({
+      select: ['id', 'email', 'role', 'createdAt', 'updatedAt'],
+      order: { createdAt: 'ASC' },
+    });
   }
 
   findByEmail(email: string) {
@@ -31,5 +42,16 @@ export class UsersService {
 
   async validatePassword(user: User, plain: string) {
     return bcrypt.compare(plain, user.passwordHash);
+  }
+
+  /**
+   * Оновити роль користувача (admin → editor / mentor / blocked тощо).
+   */
+  async updateRole(id: string, role: UserRole) {
+    const user = await this.repo.findOne({ where: { id } });
+    if (!user) throw new NotFoundException('User not found');
+
+    user.role = role;
+    return this.repo.save(user);
   }
 }

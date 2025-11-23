@@ -14,13 +14,15 @@ async function bootstrap() {
 
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
 
+  // Використовуємо змінну оточення для директорії upload'ів
+  const uploadDir = process.env.UPLOAD_DIR ?? 'uploads';
+
   // Статичні файли для завантажених матеріалів марафонів
-  // Файли з папки "uploads" будуть доступні як http://localhost:4000/uploads/...
-  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+  app.useStaticAssets(join(__dirname, '..', uploadDir), {
     prefix: '/uploads/',
   });
 
-  // /healthz для Render
+  // /healthz для Render/health-check
   app.getHttpAdapter().get('/healthz', (req: Request, res: Response): void => {
     res.send({ ok: true });
   });
